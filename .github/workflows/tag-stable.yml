@@ -1,0 +1,53 @@
+name: tag-stable
+
+on:
+  check_suite:
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    if: >-
+      github.event.check_suite.app.slug == 'garnix-ci' &&
+      github.event.check_suite.conclusion == 'success' &&
+      github.event.check_suite.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.check_suite.head_sha }}
+
+      - name: Extract Zed version
+        id: version
+        run: |
+          tag=$(grep -oE 'zed-industries/zed/v[0-9]+\.[0-9]+\.[0-9]+' flake.nix \
+            | head -n1 \
+            | sed 's|zed-industries/zed/||')
+          if [ -z "$tag" ]; then
+            echo "could not extract version from flake.nix" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Tag version and stable
+        env:
+          SHA: ${{ github.event.check_suite.head_sha }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # Immutable per-version tag: create only if absent, so rebuilds of
+          # the same Zed version never re-point an existing pin.
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "tag $TAG already exists, leaving it alone"
+          else
+            git tag "$TAG" "$SHA"
+            git push origin "$TAG"
+          fi
+
+          # Moving 'stable' tag: force-update to the newest green SHA.
+          git tag -f stable "$SHA"
+          git push -f origin refs/tags/stable

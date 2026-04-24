@@ -2,15 +2,19 @@
 
 A thin wrapper around [Zed's upstream flake](https://github.com/zed-industries/zed) pinned to the latest **stable** release tag, built and cached by [Garnix](https://garnix.io/) so you don't have to recompile the editor locally.
 
-A GitHub Actions workflow checks hourly for new stable Zed releases. When one appears, it bumps the pin and pushes; Garnix picks up the commit and publishes the build to `cache.garnix.io`.
+A GitHub Actions workflow checks hourly for new stable Zed releases. When one appears, it bumps the pin and pushes; Garnix picks up the commit and publishes the build to `cache.garnix.io`. Once Garnix goes green, a second workflow tags the commit with the Zed version (e.g. `v0.233.8`) and moves the `stable` tag to it, so you can pin to a known-cached revision.
 
 ## Using it
 
-Add it as an input to your own flake:
+Add it as an input to your own flake. Pin to the `stable` tag to always get the latest cached build, or to a specific `v*` tag for a fixed version:
 
 ```nix
 {
-  inputs.zed-flake.url = "github:jamesbirtles/zed-flake";
+  # Latest cached stable build (tag moves as new Zed releases pass Garnix):
+  inputs.zed-flake.url = "github:jamesbirtles/zed-flake/stable";
+
+  # Or pin to a specific Zed version:
+  # inputs.zed-flake.url = "github:jamesbirtles/zed-flake/v0.233.8";
 
   outputs = { self, nixpkgs, zed-flake, ... }: {
     # e.g. in a NixOS module
