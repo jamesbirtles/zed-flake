@@ -2,7 +2,7 @@ name: update-zed
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '21 * * * *'
   workflow_dispatch: {}
 
 permissions:
