@@ -1,0 +1,68 @@
+name: update-zed
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve latest stable Zed tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh api repos/zed-industries/zed/releases \
+            --jq '[.[] | select(.draft==false and .prerelease==false)][0].tag_name')
+          if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+            echo "could not resolve latest stable tag" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Read current pin
+        id: current
+        run: |
+          tag=$(grep -oE 'zed-industries/zed/v[0-9]+\.[0-9]+\.[0-9]+' flake.nix \
+            | head -n1 \
+            | sed 's|zed-industries/zed/||')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Decide
+        id: decide
+        run: |
+          if [ "${{ steps.latest.outputs.tag }}" = "${{ steps.current.outputs.tag }}" ]; then
+            echo "update=false" >> "$GITHUB_OUTPUT"
+            echo "already on ${{ steps.current.outputs.tag }}"
+          else
+            echo "update=true" >> "$GITHUB_OUTPUT"
+            echo "bumping ${{ steps.current.outputs.tag }} -> ${{ steps.latest.outputs.tag }}"
+          fi
+
+      - name: Install Nix
+        if: steps.decide.outputs.update == 'true'
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Bump flake.nix and flake.lock
+        if: steps.decide.outputs.update == 'true'
+        run: |
+          sed -i -E \
+            "s|zed-industries/zed/v[0-9]+\.[0-9]+\.[0-9]+|zed-industries/zed/${{ steps.latest.outputs.tag }}|" \
+            flake.nix
+          nix flake update zed-stable
+
+      - name: Commit and push
+        if: steps.decide.outputs.update == 'true'
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add flake.nix flake.lock
+          git commit -m "Bump Zed stable to ${{ steps.latest.outputs.tag }}"
+          git push
