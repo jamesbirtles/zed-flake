@@ -40,6 +40,7 @@
           ];
         in
         (zed-stable.packages.${system}.default).overrideAttrs (old: {
+          __intentionallyOverridingVersion = true;
           version = rebrand old.version;
           env = old.env // {
             RELEASE_VERSION = rebrand old.env.RELEASE_VERSION;
