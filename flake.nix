@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    zed-stable.url = "github:zed-industries/zed/v0.233.10";
+    zed-stable.url = "github:zed-industries/zed/v1.0.0";
   };
 
   outputs =
